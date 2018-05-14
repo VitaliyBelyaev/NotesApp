@@ -2,6 +2,7 @@ package com.example.vitaliybv.notesapp;
 
 import android.content.Context;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -25,6 +26,8 @@ public class MainActivity extends AppCompatActivity
     private Button addButton;
     private RecyclerView recyclerView;
     private NoteAdapter noteAdapter;
+    private WorkerThread workerThread;
+    private Handler uiHandler;
 
     public static final String LOG_TAG = "MAIN_ACTIVITY";
 
@@ -37,7 +40,9 @@ public class MainActivity extends AppCompatActivity
         bodyEditText = findViewById(R.id.et_body);
         addButton = findViewById(R.id.button_add);
         initRecyclerView();
-        new RefreshAsyncTask().execute();
+        initWorkerThread();
+
+        refresh();
 
         addButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -49,88 +54,110 @@ public class MainActivity extends AppCompatActivity
                 bodyEditText.setText("");
                 hideKeyboard();
 
-
-                Note note = new Note(title, body);
-                new InsertAsyncTask().execute(note);
+                final Note note = new Note(title, body);
+                insert(note);
             }
         });
     }
 
     @Override
     public void onClick(int id, int position) {
-        new DeleteAsyncTask().execute(id);
-
+        delete(id);
     }
 
+    // perform deleting note from DB on background thread
+    private void delete(final int id) {
+        Runnable insertTask = new Runnable() {
+            @Override
+            public void run() {
+                // delete note by id
+                getApp().getDb().noteDao().deleteById(id);
 
-    public class RefreshAsyncTask extends AsyncTask<Void, Void, List<Note>> {
+                uiHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(),
+                                "Note deleted",
+                                Toast.LENGTH_SHORT)
+                                .show();
+                    }
+                });
 
-        @Override
-        protected List<Note> doInBackground(Void... voids) {
-            List<Note> notes = getApp().getDb().noteDao().getAll();
-            return notes;
-        }
-
-        @Override
-        protected void onPostExecute(List<Note> notes) {
-            super.onPostExecute(notes);
-            Collections.reverse(notes);
-            noteAdapter.replaceWith(notes);
-        }
+                refresh();
+            }
+        };
+        // add task to the MessageQueue of WorkerThread
+        workerThread.postTask(insertTask);
     }
 
-    public class InsertAsyncTask extends AsyncTask<Note, Void, Void> {
+    // perform inserting note to DB on background thread
+    private void insert(final Note note) {
+        Runnable insertTask = new Runnable() {
+            @Override
+            public void run() {
+                // insert note into DB
+                getApp().getDb().noteDao().insert(note);
 
+                uiHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(),
+                                "Note added",
+                                Toast.LENGTH_SHORT)
+                                .show();
+                    }
+                });
 
-        @Override
-        protected Void doInBackground(Note... notes) {
-            getApp().getDb().noteDao().insertAll(notes);
-            Log.i(LOG_TAG,"in doInBackground");
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            super.onPostExecute(aVoid);
-            Log.i(LOG_TAG,"in postExecute before starting refresh");
-            Toast.makeText(getApplicationContext(),"Note inserted",Toast.LENGTH_SHORT).show();
-            new RefreshAsyncTask().execute();
-        }
+                refresh();
+            }
+        };
+        // add task to the MessageQueue of WorkerThread
+        workerThread.postTask(insertTask);
     }
 
-    public class DeleteAsyncTask extends AsyncTask<Integer, Void, Void> {
+    // perform getting actual list of notes from DB and refreshing UI
+    private void refresh() {
+        Runnable refreshTask = new Runnable() {
+            @Override
+            public void run() {
+                List<Note> notes = getApp().getDb().noteDao().getAll();
 
-
-        @Override
-        protected Void doInBackground(Integer... ids) {
-            getApp().getDb().noteDao().deleteById(ids[0]);
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            super.onPostExecute(aVoid);
-            Toast.makeText(getApplicationContext(),"Note deleted",Toast.LENGTH_SHORT).show();
-            new RefreshAsyncTask().execute();
-        }
+                Collections.reverse(notes);
+                final List<Note> reverseNotes = notes;
+                uiHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        noteAdapter.replaceWith(reverseNotes);
+                    }
+                });
+            }
+        };
+        workerThread.postTask(refreshTask);
     }
 
-    private void initRecyclerView(){
+    private void initRecyclerView() {
         recyclerView = findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         noteAdapter = new NoteAdapter(this);
         recyclerView.setAdapter(noteAdapter);
     }
 
+    private void initWorkerThread() {
+        workerThread = new WorkerThread("workerThread");
+        uiHandler = new Handler();
+        workerThread.start();
+        workerThread.prepareHandler();
+    }
+
     private void hideKeyboard() {
         View view = this.getCurrentFocus();
         if (view != null) {
-            InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
     }
-    
-    private App getApp(){
+
+    private App getApp() {
         return ((App) getApplication());
     }
 }
