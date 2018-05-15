@@ -8,16 +8,17 @@ import android.arch.persistence.room.PrimaryKey;
 public class Note {
 
     @PrimaryKey(autoGenerate = true)
-    private int id;
+    final private int id;
 
     @ColumnInfo(name = "title")
-    private String title;
+    final private String title;
 
     @ColumnInfo(name = "body")
-    private String body;
+    final private String body;
 
 
-    public Note(String title, String body) {
+    public Note(int id, String title, String body) {
+        this.id = id;
         this.title = title;
         this.body = body;
     }
@@ -26,23 +27,12 @@ public class Note {
         return id;
     }
 
-    public void setId(int id) {
-        this.id = id;
-    }
-
     public String getTitle() {
         return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
     }
 
     public String getBody() {
         return body;
     }
 
-    public void setBody(String body) {
-        this.body = body;
-    }
 }

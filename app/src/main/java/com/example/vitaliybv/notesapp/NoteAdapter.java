@@ -8,11 +8,12 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.Collections;
 import java.util.List;
 
 public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder> {
 
-    private List<Note> notes;
+    private List<Note> notes = Collections.emptyList();
     private NoteAdapterOnClickHandler onClickHandler;
 
     interface NoteAdapterOnClickHandler {
@@ -34,7 +35,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     public NoteViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         return new NoteViewHolder(inflater
-                .inflate(R.layout.note_item, parent,false));
+                .inflate(R.layout.note_item, parent, false));
     }
 
     @Override
@@ -48,17 +49,14 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
     @Override
     public int getItemCount() {
-        if(notes != null){
-            return notes.size();
-        }
-        return 0;
+        return notes.size();
     }
 
     public class NoteViewHolder extends RecyclerView.ViewHolder {
 
-        LinearLayout container;
-        TextView titleTextView;
-        TextView bodyTextView;
+        final LinearLayout container;
+        final TextView titleTextView;
+        final TextView bodyTextView;
 
         public NoteViewHolder(View itemView) {
             super(itemView);

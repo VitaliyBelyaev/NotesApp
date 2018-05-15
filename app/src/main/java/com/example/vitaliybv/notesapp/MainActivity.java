@@ -28,6 +28,7 @@ public class MainActivity extends AppCompatActivity
     private NoteAdapter noteAdapter;
     private WorkerThread workerThread;
     private Handler uiHandler;
+    private Handler workerHandler;
 
     public static final String LOG_TAG = "MAIN_ACTIVITY";
 
@@ -54,10 +55,18 @@ public class MainActivity extends AppCompatActivity
                 bodyEditText.setText("");
                 hideKeyboard();
 
-                final Note note = new Note(title, body);
+                final Note note = new Note(0,title, body);
                 insert(note);
             }
         });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        uiHandler.removeCallbacksAndMessages(null);
+        workerHandler.removeCallbacksAndMessages(null);
     }
 
     @Override
@@ -87,7 +96,7 @@ public class MainActivity extends AppCompatActivity
             }
         };
         // add task to the MessageQueue of WorkerThread
-        workerThread.postTask(insertTask);
+        workerHandler.post(insertTask);
     }
 
     // perform inserting note to DB on background thread
@@ -112,7 +121,7 @@ public class MainActivity extends AppCompatActivity
             }
         };
         // add task to the MessageQueue of WorkerThread
-        workerThread.postTask(insertTask);
+        workerHandler.post(insertTask);
     }
 
     // perform getting actual list of notes from DB and refreshing UI
@@ -120,10 +129,8 @@ public class MainActivity extends AppCompatActivity
         Runnable refreshTask = new Runnable() {
             @Override
             public void run() {
-                List<Note> notes = getApp().getDb().noteDao().getAll();
+                final List<Note> reverseNotes= getApp().getDb().noteDao().getAllReverse();
 
-                Collections.reverse(notes);
-                final List<Note> reverseNotes = notes;
                 uiHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -132,7 +139,7 @@ public class MainActivity extends AppCompatActivity
                 });
             }
         };
-        workerThread.postTask(refreshTask);
+        workerHandler.post(refreshTask);
     }
 
     private void initRecyclerView() {
@@ -143,10 +150,9 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void initWorkerThread() {
-        workerThread = new WorkerThread("workerThread");
         uiHandler = new Handler();
-        workerThread.start();
-        workerThread.prepareHandler();
+        workerThread = Workers.getWorkerThread();
+        workerHandler = workerThread.newWorkerHandler();
     }
 
     private void hideKeyboard() {
