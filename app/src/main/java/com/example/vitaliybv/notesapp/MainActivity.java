@@ -3,6 +3,7 @@ package com.example.vitaliybv.notesapp;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -26,9 +27,9 @@ public class MainActivity extends AppCompatActivity
     private Button addButton;
     private RecyclerView recyclerView;
     private NoteAdapter noteAdapter;
-    private WorkerThread workerThread;
     private Handler uiHandler;
     private Handler workerHandler;
+    private Runnable refreshTask;
 
     public static final String LOG_TAG = "MAIN_ACTIVITY";
 
@@ -55,7 +56,7 @@ public class MainActivity extends AppCompatActivity
                 bodyEditText.setText("");
                 hideKeyboard();
 
-                final Note note = new Note(0,title, body);
+                final Note note = new Note(0, title, body);
                 insert(note);
             }
         });
@@ -85,10 +86,7 @@ public class MainActivity extends AppCompatActivity
                 uiHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Note deleted",
-                                Toast.LENGTH_SHORT)
-                                .show();
+                        showToast("Note deleted");
                     }
                 });
 
@@ -110,10 +108,7 @@ public class MainActivity extends AppCompatActivity
                 uiHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Note added",
-                                Toast.LENGTH_SHORT)
-                                .show();
+                        showToast("Note added");
                     }
                 });
 
@@ -126,20 +121,29 @@ public class MainActivity extends AppCompatActivity
 
     // perform getting actual list of notes from DB and refreshing UI
     private void refresh() {
-        Runnable refreshTask = new Runnable() {
-            @Override
-            public void run() {
-                final List<Note> reverseNotes= getApp().getDb().noteDao().getAllReverse();
+        if (refreshTask == null) {
+            refreshTask = new Runnable() {
+                @Override
+                public void run() {
+                    final List<Note> reverseNotes = getApp().getDb().noteDao().getAllReverse();
 
-                uiHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        noteAdapter.replaceWith(reverseNotes);
-                    }
-                });
-            }
-        };
+                    uiHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            noteAdapter.replaceWith(reverseNotes);
+                        }
+                    });
+                }
+            };
+        }
         workerHandler.post(refreshTask);
+    }
+
+    private void showToast(String message) {
+        Toast.makeText(getApplicationContext(),
+                message,
+                Toast.LENGTH_SHORT)
+                .show();
     }
 
     private void initRecyclerView() {
@@ -150,9 +154,8 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void initWorkerThread() {
-        uiHandler = new Handler();
-        workerThread = Workers.getWorkerThread();
-        workerHandler = workerThread.newWorkerHandler();
+        uiHandler = new Handler(Looper.getMainLooper());
+        workerHandler = Workers.getWorkerThread().newWorkerHandler();
     }
 
     private void hideKeyboard() {

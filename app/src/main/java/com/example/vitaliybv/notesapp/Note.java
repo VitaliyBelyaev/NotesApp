@@ -8,13 +8,13 @@ import android.arch.persistence.room.PrimaryKey;
 public class Note {
 
     @PrimaryKey(autoGenerate = true)
-    final private int id;
+    private final int id;
 
     @ColumnInfo(name = "title")
-    final private String title;
+    private final String title;
 
     @ColumnInfo(name = "body")
-    final private String body;
+    private final String body;
 
 
     public Note(int id, String title, String body) {
